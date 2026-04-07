@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通知公告</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a class="logo" href="index.html">通知公告</a>
+  <nav id="nav-admin"></nav>
+</header>
+
+<div class="container">
+  <div class="flash-container" id="flash-container"></div>
+  <div class="page-title">通知公告</div>
+  <div id="list-container"><div class="loading"><span class="spinner"></span>加载中…</div></div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/notices.js"></script>
+<script>
+  let currentPage = 1;
+  let totalCount = 0;
+
+  async function loadNotices(page) {
+    currentPage = page;
+    const listEl = document.getElementById('list-container');
+    listEl.innerHTML = '<div class="loading"><span class="spinner"></span>加载中…</div>';
+
+    const { data, error, count } = await getPublicNotices(page);
+    totalCount = count || 0;
+
+    if (error) {
+      listEl.innerHTML = '<div class="empty-state">加载失败，请刷新重试</div>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="card empty-state">暂无通知公告</div>';
+      renderPagination();
+      return;
+    }
+
+    listEl.innerHTML = data.map(n => `
+      <div class="card notice-item">
+        <a class="notice-item-title" href="notice.html?id=${n.id}">${escHtml(n.title)}</a>
+        <span class="text-muted">${formatDate(n.created_at).slice(0,10)}</span>
+      </div>
+    `).join('');
+
+    renderPagination();
+  }
+
+  function renderPagination() {
+    const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+    const el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+    let html = currentPage > 1
+      ? `<a href="#" onclick="loadNotices(${currentPage-1});return false;">上一页</a>`
+      : `<span class="disabled">上一页</span>`;
+
+    for (let p = 1; p <= totalPages; p++) {
+      html += p === currentPage
+        ? `<span class="current">${p}</span>`
+        : `<a href="#" onclick="loadNotices(${p});return false;">${p}</a>`;
+    }
+
+    html += currentPage < totalPages
+      ? `<a href="#" onclick="loadNotices(${currentPage+1});return false;">下一页</a>`
+      : `<span class="disabled">下一页</span>`;
+
+    el.innerHTML = html;
+  }
+
+  function escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  updateHeaderNav('admin/login.html', 'admin/index.html');
+  loadNotices(1);
+</script>
+</body>
+</html>

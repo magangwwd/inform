@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通知管理</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a class="logo" href="../index.html">通知公告</a>
+  <nav>
+    <a href="../index.html">公开页面</a>
+    <a href="#" onclick="doLogout(event)">退出</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="flash-container" id="flash-container"></div>
+
+  <div class="flex-between" style="margin-bottom:20px;">
+    <div class="page-title" style="margin:0;">通知管理</div>
+    <a href="create.html" class="btn btn-primary">+ 发布新通知</a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div id="table-container"><div class="loading"><span class="spinner"></span>加载中…</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/client.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/notices.js"></script>
+<script>
+  async function load() {
+    await requireAuth();
+    const { data, error } = await getAllNoticesAdmin();
+    const el = document.getElementById('table-container');
+
+    if (error) { el.innerHTML = '<div class="empty-state">加载失败，请刷新重试</div>'; return; }
+    if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state">暂无通知，点击右上角发布</div>'; return; }
+
+    el.innerHTML = `
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>标题</th>
+            <th class="center" style="width:80px;">状态</th>
+            <th class="center" style="width:110px;">发布时间</th>
+            <th class="center" style="width:160px;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(n => `
+            <tr class="${n.is_deleted ? 'row-deleted' : ''}">
+              <td>
+                ${n.is_deleted
+                  ? `<span style="color:#8aacb0;">${escHtml(n.title)}</span>`
+                  : `<a href="../notice.html?id=${n.id}">${escHtml(n.title)}</a>`}
+              </td>
+              <td class="center">
+                ${n.is_deleted
+                  ? '<span class="badge badge-deleted">已删除</span>'
+                  : '<span class="badge badge-active">已发布</span>'}
+              </td>
+              <td class="center text-muted">${formatDate(n.created_at).slice(0,10)}</td>
+              <td class="center">
+                <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+                  ${n.is_deleted ? `
+                    <button class="btn btn-secondary btn-sm" onclick="restore('${n.id}')">恢复</button>
+                  ` : `
+                    <a href="edit.html?id=${n.id}" class="btn btn-secondary btn-sm">编辑</a>
+                    <button class="btn btn-danger btn-sm" onclick="del('${n.id}', '${escHtml(n.title).replace(/'/g,"\\'")}')">删除</button>
+                  `}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function del(id, title) {
+    if (!confirm(`确认删除「${title}」？`)) return;
+    const { error } = await softDeleteNotice(id);
+    if (error) { showMsg('删除失败：' + error.message, 'error'); return; }
+    showMsg('已删除');
+    load();
+  }
+
+  async function restore(id) {
+    const { error } = await restoreNotice(id);
+    if (error) { showMsg('恢复失败：' + error.message, 'error'); return; }
+    showMsg('已恢复');
+    load();
+  }
+
+  function escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  load();
+</script>
+</body>
+</html>

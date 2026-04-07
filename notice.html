@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通知详情</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a class="logo" href="index.html">通知公告</a>
+  <nav id="nav-admin"></nav>
+</header>
+
+<div class="container">
+  <div class="flash-container" id="flash-container"></div>
+  <div style="margin-bottom:14px;">
+    <a href="index.html" class="text-muted">← 返回列表</a>
+  </div>
+  <div id="notice-container"><div class="loading"><span class="spinner"></span>加载中…</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/notices.js"></script>
+<script src="js/attachments.js"></script>
+<script>
+  async function load() {
+    const id = getParam('id');
+    const container = document.getElementById('notice-container');
+
+    if (!id) {
+      container.innerHTML = '<div class="card empty-state">无效的通知链接</div>';
+      return;
+    }
+
+    const { data: notice, error } = await getPublicNotice(id);
+    if (error || !notice) {
+      container.innerHTML = '<div class="card empty-state">通知不存在或已删除</div>';
+      return;
+    }
+
+    document.title = notice.title + ' — 通知公告';
+
+    const { data: attachments } = await getAttachments(id);
+
+    const attHtml = (attachments && attachments.length > 0) ? `
+      <div class="attachments-section">
+        <div style="font-weight:600; margin-bottom:8px; color:#2e6070;">附件（${attachments.length}）</div>
+        ${attachments.map(a => `
+          <div class="attach-item">
+            <span class="attach-icon">📎</span>
+            <span class="attach-name">${escHtml(a.filename)}</span>
+            <span class="attach-size">${formatSize(a.file_size)}</span>
+            <a href="${getPublicUrl(a.stored_name)}" class="btn btn-secondary btn-sm" download="${escHtml(a.filename)}">下载</a>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    const updatedHtml = notice.updated_at !== notice.created_at
+      ? `&nbsp;|&nbsp; 更新：${formatDate(notice.updated_at)}`
+      : '';
+
+    container.innerHTML = `
+      <div class="card">
+        <h1 style="font-size:22px;font-weight:bold;margin-bottom:8px;color:#1d5f6e;">${escHtml(notice.title)}</h1>
+        <div class="text-muted" style="margin-bottom:20px;">
+          发布：${formatDate(notice.created_at)}${updatedHtml}
+        </div>
+        <div class="notice-content">${DOMPurify.sanitize(notice.content)}</div>
+        ${attHtml}
+      </div>
+    `;
+  }
+
+  function escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  updateHeaderNav('admin/login.html', 'admin/index.html');
+  load();
+</script>
+</body>
+</html>
